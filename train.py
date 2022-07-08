@@ -15,7 +15,9 @@ from logger import Logger
 from replay_buffer import ReplayBuffer
 import utils
 
-import dmc2gym
+# import dmc2gym
+import safety_gym
+import gym
 import hydra
 
 
@@ -28,10 +30,11 @@ def make_env(cfg):
         domain_name = cfg.env.split('_')[0]
         task_name = '_'.join(cfg.env.split('_')[1:])
 
-    env = dmc2gym.make(domain_name=domain_name,
-                       task_name=task_name,
-                       seed=cfg.seed,
-                       visualize_reward=True)
+    # env = dmc2gym.make(domain_name=domain_name,
+    #                    task_name=task_name,
+    #                    seed=cfg.seed,
+    #                    visualize_reward=True)
+    env = gym.make('Safexp-PointGoal1-v0')
     env.seed(cfg.seed)
     assert env.action_space.low.min() >= -1
     assert env.action_space.high.max() <= 1
@@ -55,8 +58,10 @@ class Workspace(object):
         self.device = torch.device(cfg.device)
         self.env = utils.make_env(cfg)
 
-        cfg.agent.params.obs_dim = self.env.observation_space.shape[0]
-        cfg.agent.params.action_dim = self.env.action_space.shape[0]
+        # cfg.agent.params.obs_dim = self.env.observation_space.shape[0]
+        # cfg.agent.params.action_dim = self.env.action_space.shape[0]
+        cfg.agent.params.obs_dim = int(self.env.observation_space.shape[0])
+        cfg.agent.params.action_dim = int(self.env.action_space.shape[0])
         cfg.agent.params.action_range = [
             float(self.env.action_space.low.min()),
             float(self.env.action_space.high.max())
@@ -138,7 +143,8 @@ class Workspace(object):
 
             # allow infinite bootstrap
             done = float(done)
-            done_no_max = 0 if episode_step + 1 == self.env._max_episode_steps else done
+            # done_no_max = 0 if episode_step + 1 == self.env._max_episode_steps else done
+            done_no_max = 0 if episode_step + 1 == self.env.num_steps else done
             episode_reward += reward
 
             self.replay_buffer.add(obs, action, reward, next_obs, done,

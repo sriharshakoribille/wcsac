@@ -9,7 +9,7 @@ from collections import deque
 import random
 import math
 
-import dmc2gym
+# import dmc2gym
 
 
 def make_env(cfg):
@@ -21,10 +21,11 @@ def make_env(cfg):
         domain_name = cfg.env.split('_')[0]
         task_name = '_'.join(cfg.env.split('_')[1:])
 
-    env = dmc2gym.make(domain_name=domain_name,
-                       task_name=task_name,
-                       seed=cfg.seed,
-                       visualize_reward=True)
+    # env = dmc2gym.make(domain_name=domain_name,
+    #                    task_name=task_name,
+    #                    seed=cfg.seed,
+    #                    visualize_reward=True)
+    env = gym.make('Safexp-PointGoal1-v0')
     env.seed(cfg.seed)
     assert env.action_space.low.min() >= -1
     assert env.action_space.high.max() <= 1
