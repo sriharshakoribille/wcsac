@@ -10,13 +10,14 @@ import utils
 import hydra
 
 
-class SACAgent(Agent):
-    """SAC algorithm."""
-    def __init__(self, obs_dim, action_dim, action_range, device, critic_cfg,
-                 actor_cfg, discount, init_temperature, alpha_lr, alpha_betas,
-                 actor_lr, actor_betas, actor_update_frequency, critic_lr,
-                 critic_betas, critic_tau, critic_target_update_frequency,
-                 batch_size, learnable_temperature):
+class SAC_Lagrangian_Agent(Agent):
+    """SAC-Larangian algorithm."""
+    def __init__(self, obs_dim, action_dim, action_range, device, critic_cfg, safety_critic_cfg,
+                 actor_cfg, discount, init_temperature, alpha_lr, alpha_betas, actor_lr,
+                 actor_betas, actor_update_frequency, critic_lr, critic_betas, critic_tau,
+                 critic_target_update_frequency, safety_critic_lr, safety_critic_betas, 
+                 safety_critic_tau, safety_critic_update_frequency, max_safety_cost, batch_size, learnable_temperature
+                 target_entropy, init_lambda, lambda_lr, lambda_betas):
         super().__init__()
 
         self.action_range = action_range
@@ -33,12 +34,20 @@ class SACAgent(Agent):
             self.device)
         self.critic_target.load_state_dict(self.critic.state_dict())
 
+        self.safety_critic = hydra.utils.instantiate(safety_critic_cfg).to(self.device)
+        self.safety_critic_target = hydra.utils.instantiate(safety_critic_cfg).to(
+            self.device)
+        self.safety_critic_target.load_state_dict(self.safety_critic.state_dict())
+
         self.actor = hydra.utils.instantiate(actor_cfg).to(self.device)
 
         self.log_alpha = torch.tensor(np.log(init_temperature)).to(self.device)
         self.log_alpha.requires_grad = True
         # set target entropy to -|A|
         self.target_entropy = -action_dim
+
+        self.lam = torch.tensor(init_lambda).to(self.device)
+        self.max_cost = max_safety_cost
 
         # optimizers
         self.actor_optimizer = torch.optim.Adam(self.actor.parameters(),
@@ -49,12 +58,21 @@ class SACAgent(Agent):
                                                  lr=critic_lr,
                                                  betas=critic_betas)
 
+        self.safety_critic_optimizer = torch.optim.Adam(self.safety_critic.parameters(),
+                                                 lr=safety_critic_lr,
+                                                 betas=safety_critic_betas)
+
         self.log_alpha_optimizer = torch.optim.Adam([self.log_alpha],
                                                     lr=alpha_lr,
                                                     betas=alpha_betas)
 
+        self.lambda_optimizer = torch.optim.Adam([self.lam],
+                                                    lr=lambda_lr,
+                                                    betas=lambda_betas)
+
         self.train()
         self.critic_target.train()
+        self.safety_critic_target.train()
 
     def train(self, training=True):
         self.training = training
@@ -97,15 +115,40 @@ class SACAgent(Agent):
         self.critic_optimizer.step()
 
         self.critic.log(logger, step)
+    
+    def update_safety_critic(self, obs, action, reward, cost, next_obs, not_done, logger, step):
+        dist = self.actor(next_obs)
+        next_action = dist.rsample()
+        log_prob = dist.log_prob(next_action).sum(-1, keepdim=True)
+        target_C1, target_C2 = self.safety_critic_target(next_obs, next_action)
+        target_cost = cost + (not_done * self.discount * (torch.min(target_C1, target_C2) - self.alpha.detach() * log_prob))
+        target_cost = target_cost.detach()
+
+        # get current Q estimates
+        current_cost1, current_cost2 = self.safety_critic(obs, action)
+        safety_critic_loss = F.mse_loss(current_cost1, target_cost) + F.mse_loss(
+            current_cost2, target_cost)
+        logger.log('train_safety_critic/loss', safety_critic_loss, step)
+
+        # Optimize the critic
+        self.safety_critic_optimizer.zero_grad()
+        safety_critic_loss.backward()
+        self.safety_critic_optimizer.step()
+
+        self.critic.log(logger, step)
 
     def update_actor_and_alpha(self, obs, logger, step):
         dist = self.actor(obs)
         action = dist.rsample()
         log_prob = dist.log_prob(action).sum(-1, keepdim=True)
+        
         actor_Q1, actor_Q2 = self.critic(obs, action)
-
         actor_Q = torch.min(actor_Q1, actor_Q2)
-        actor_loss = (self.alpha.detach() * log_prob - actor_Q).mean()
+        
+        actor_cost1, actor_cost2 = self.safety_critic(obs, action)
+        actor_cost = torch.min(actor_cost1, actor_cost2)
+
+        actor_loss = (self.alpha.detach() * log_prob - actor_Q + self.lam.detach() * actor_cost).mean()
 
         logger.log('train_actor/loss', actor_loss, step)
         logger.log('train_actor/target_entropy', self.target_entropy, step)
@@ -126,6 +169,9 @@ class SACAgent(Agent):
             logger.log('train_alpha/value', self.alpha, step)
             alpha_loss.backward()
             self.log_alpha_optimizer.step()
+
+            self.lambda_optimizer.zero_grad()
+            lambda_loss = self.lam * (self.max_cost - actor_cost)
 
     def update(self, replay_buffer, logger, step):
         obs, action, reward, next_obs, not_done, not_done_no_max = replay_buffer.sample(

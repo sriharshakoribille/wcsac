@@ -7,6 +7,7 @@ agent:
     action_range: ??? # to be specified later
     device: ${device}
     critic_cfg: ${double_q_critic}
+    safety_critic_cfg: ${double_safety_critic}
     actor_cfg: ${diag_gaussian_actor}
     discount: 0.99
     init_temperature: 0.1
@@ -19,8 +20,13 @@ agent:
     critic_betas: [0.9, 0.999]
     critic_tau: 0.005
     critic_target_update_frequency: 2
+    safety_critic_lr: 1e-4
+    safety_critic_betas: [0.9, 0.999]
+    safety_critic_tau: 0.005
+    safety_critic_target_update_frequency: 2
     batch_size: 1024
     learnable_temperature: true
+    target_entropy: 0.0
     
 double_q_critic:
   class: agent.critic.DoubleQCritic
@@ -29,7 +35,15 @@ double_q_critic:
     action_dim: ${agent.params.action_dim}
     hidden_dim: 1024
     hidden_depth: 2
-    
+
+safety_double_q_critic:
+  class: agent.critic.DoubleQSafetyCritic
+  params:
+    obs_dim: ${agent.params.obs_dim}
+    action_dim: ${agent.params.action_dim}
+    hidden_dim: 1024
+    hidden_depth: 2
+
 diag_gaussian_actor:
   class: agent.actor.DiagGaussianActor
   params:

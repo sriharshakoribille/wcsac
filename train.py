@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from distutils.log import info
 import numpy as np
 import torch
 import torch.nn as nn
@@ -88,9 +89,10 @@ class Workspace(object):
             while not done:
                 with utils.eval_mode(self.agent):
                     action = self.agent.act(obs, sample=False)
-                obs, reward, done, _ = self.env.step(action)
+                obs, reward, done, info = self.env.step(action)
                 self.video_recorder.record(self.env)
                 episode_reward += reward
+                episode_cost += info.get('cost', 0)
 
             average_episode_reward += episode_reward
             self.video_recorder.save(f'{self.step}.mp4')
@@ -124,6 +126,7 @@ class Workspace(object):
                 done = False
                 episode_reward = 0
                 episode_step = 0
+                episode_cost = 0
                 episode += 1
 
                 self.logger.log('train/episode', episode, self.step)
@@ -139,15 +142,17 @@ class Workspace(object):
             if self.step >= self.cfg.num_seed_steps:
                 self.agent.update(self.replay_buffer, self.logger, self.step)
 
-            next_obs, reward, done, _ = self.env.step(action)
+            next_obs, reward, done, info = self.env.step(action)
 
             # allow infinite bootstrap
             done = float(done)
             # done_no_max = 0 if episode_step + 1 == self.env._max_episode_steps else done
             done_no_max = 0 if episode_step + 1 == self.env.num_steps else done
             episode_reward += reward
+            cost = info.get('cost', 0)
+            episode_cost += cost
 
-            self.replay_buffer.add(obs, action, reward, next_obs, done,
+            self.replay_buffer.add(obs, action, reward, cost, next_obs, done,
                                    done_no_max)
 
             obs = next_obs
