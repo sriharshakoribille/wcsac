@@ -1,4 +1,4 @@
-name: pytorch_wcsac
+name: pytorch_saclag
 channels:
   - defaults
 dependencies:

@@ -1,19 +1,21 @@
 defaults:
-    - agent: sac
+    - agent: saclag
 
-env: cheetah_run
+env: 'point_goal_1'
+# env: 'cheetah_run'
+# env: 'custom_static'
+# env: 'custom_dynamic'
 
 # this needs to be specified manually
-experiment: test_exp
+experiment: exp
 
-num_train_steps: 1e6
-replay_buffer_capacity: ${num_train_steps}
+num_train_steps: 2e6
+replay_buffer_capacity: 1e6
 
 num_seed_steps: 5000
 
-# eval_frequency: 10000
-eval_frequency: 2000
-num_eval_episodes: 10
+eval_frequency: 10000
+num_eval_episodes: 20
 
 device: cuda
 
@@ -25,8 +27,10 @@ log_save_tb: true
 save_video: true
 
 
-seed: 1
+seed: -1
+risk_level: 2
 
+restart_path: dummy
 
 # hydra configuration
 hydra:

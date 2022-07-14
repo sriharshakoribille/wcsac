@@ -12,13 +12,18 @@ COMMON_TRAIN_FORMAT = [
     ('episode', 'E', 'int'),
     ('step', 'S', 'int'),
     ('episode_reward', 'R', 'float'),
+    ('episode_cost', 'C', 'float'),
     ('duration', 'D', 'time') 
 ]
 
 COMMON_EVAL_FORMAT = [
     ('episode', 'E', 'int'),
     ('step', 'S', 'int'),
-    ('episode_reward', 'R', 'float') 
+    ('mean_reward', 'R', 'float'),
+    ('mean_cost', 'C', 'float'),
+    ('mean_goals_met', 'GM', 'float'),
+    ('hazard_touches', 'HT', 'float'),
+    ('cost_limit_violations', 'CVIO', 'float')
 ]
 
 
@@ -30,6 +35,20 @@ AGENT_TRAIN_FORMAT = {
         ('alpha_loss', 'TLOSS', 'float'),
         ('alpha_value', 'TVAL', 'float'),
         ('actor_entropy', 'AENT', 'float')
+    ],
+    'saclag': [
+        ('batch_reward', 'BR', 'float'),
+        ('batch_cost', 'BC', 'float'),
+        ('cost_rate', 'CRATE', 'float'),
+        ('actor_loss', 'ALOSS', 'float'),
+        ('critic_loss', 'CLOSS', 'float'),
+        ('safety_critic_loss', 'SCLOSS', 'float'),
+        ('alpha_loss', 'ALPLOSS', 'float'),
+        ('alpha_value', 'ALPVAL', 'float'),
+        ('actor_entropy', 'AENT', 'float'),
+        ('actor_cost', 'ACOST', 'float'),
+        ('beta_loss', 'BETLOSS', 'float'),
+        ('beta_value', 'BETVAL', 'float')
     ]
 }
 
