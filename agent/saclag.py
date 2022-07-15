@@ -221,14 +221,14 @@ class SACLAGAgent(Agent):
         torch.save(self.actor.trunk.state_dict(), os.path.join(path, 'actor.pth'))
         torch.save(self.critic.Q1.state_dict(), os.path.join(path, 'critic_q1.pth'))
         torch.save(self.critic.Q2.state_dict(), os.path.join(path, 'critic_q2.pth'))
-        torch.save(self.safety_critic.QC1.state_dict(), os.path.join(path, 'safety_critic_QC.pth'))
+        torch.save(self.safety_critic.QC.state_dict(), os.path.join(path, 'safety_critic_QC.pth'))
 
 
     def load(self, path):
         self.actor.trunk.load_state_dict(torch.load(os.path.join(path, 'actor.pth')))
         self.critic.Q1.load_state_dict(torch.load(os.path.join(path, 'critic_q1.pth')))
         self.critic.Q2.load_state_dict(torch.load(os.path.join(path, 'critic_q2.pth')))
-        self.safety_critic.QC1.load_state_dict(torch.load(os.path.join(path, 'safety_critic_QC.pth')))
+        self.safety_critic.QC.load_state_dict(torch.load(os.path.join(path, 'safety_critic_QC.pth')))
     
     def save_actor(self, path, id):
         torch.save(self.actor.trunk.state_dict(), os.path.join(path, f'{id}.pth'))
