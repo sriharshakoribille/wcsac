@@ -46,8 +46,8 @@ class SafetyCritic(nn.Module):
     def __init__(self, obs_dim, action_dim, hidden_dim, hidden_depth):
         super().__init__()
 
-        self.QC = utils.mlp(obs_dim + action_dim, hidden_dim, 1, hidden_depth)
-        self.VC = utils.mlp(obs_dim + action_dim, hidden_dim, 1, hidden_depth)
+        self.QC1 = utils.mlp(obs_dim + action_dim, hidden_dim, 1, hidden_depth)
+        self.QC2 = utils.mlp(obs_dim + action_dim, hidden_dim, 1, hidden_depth)
 
         self.outputs = dict()
         self.apply(utils.weight_init)
@@ -56,21 +56,21 @@ class SafetyCritic(nn.Module):
         assert obs.size(0) == action.size(0)
 
         obs_action = torch.cat([obs, action], dim=-1)
-        qc = self.QC(obs_action)
-        vc = self.VC(obs_action)
+        qc1 = self.QC1(obs_action)
+        qc2 = self.QC2(obs_action)
 
-        self.outputs['qc'] = qc
-        self.outputs['vc'] = vc
+        self.outputs['qc1'] = qc1
+        self.outputs['qc2'] = qc2
 
-        return qc, vc
+        return qc1, qc2
 
     def log(self, logger, step):
         for k, v in self.outputs.items():
             logger.log_histogram(f'train_safety_critic/{k}_hist', v, step)
 
-        assert len(self.QC) == len(self.VC)
-        for i, (m1, m2) in enumerate(zip(self.QC, self.VC)):
+        assert len(self.QC1) == len(self.QC2)
+        for i, (m1, m2) in enumerate(zip(self.QC1, self.QC2)):
             assert type(m1) == type(m2)
             if type(m1) is nn.Linear:
-                logger.log_param(f'train_safety_critic/qc_fc{i}', m1, step)
-                logger.log_param(f'train_safety_critic/vc_fc{i}', m2, step)
+                logger.log_param(f'train_safety_critic/qc1_fc{i}', m1, step)
+                logger.log_param(f'train_safety_critic/qc2_fc{i}', m2, step)
