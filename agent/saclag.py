@@ -35,10 +35,7 @@ class SACLAGAgent(Agent):
         # Safety related params
         self.max_episode_len = max_episode_len
         self.cost_limit = cost_limit  # d in Eq. 10
-        self.risk_level = risk_level  # alpha in Eq. 9 / risk averse = 0, risk neutral = 1
-        # normal = tdist.normal.Normal(torch.tensor([0.0]), torch.tensor([1.0]))
-        # self.pdf_cdf = normal.log_prob(normal.icdf(torch.tensor(self.risk_level))).exp() / self.risk_level  # precompute CVaR Value for st. normal distribution
-        # self.pdf_cdf = self.pdf_cdf.cuda()
+        self.risk_level = risk_level  # not used
         self.damp_scale = damp_scale
         self.cost_lr_scale = lr_scale
 
@@ -130,15 +127,12 @@ class SACLAGAgent(Agent):
         target_Q = reward + (not_done * self.discount * target_V)
         target_Q = target_Q.detach()
 
-        # Current QC1 and QC2 estimates
-        current_QC1, current_QC2 = self.safety_critic(obs, action)
-        # current_QC = torch.min(current_QC1, current_QC2)
+        # Current QC
+        current_QC = self.safety_critic(obs, action)
 
-        # QC1, QC2 targets
+        # QC target
         # use next_action as an approximation
-        next_QC1, next_QC2 = self.safety_critic_target(next_obs, next_action)
-        next_QC = torch.min(next_QC1, next_QC2)
-
+        next_QC = self.safety_critic_target(next_obs, next_action)
         target_QC = cost + (not_done * self.discount * next_QC)
         target_QC = target_QC.detach()
 
@@ -147,7 +141,7 @@ class SACLAGAgent(Agent):
         logger.log('train/critic_loss', critic_loss, step)
 
         # Safety Critic Loss
-        safety_critic_loss = F.mse_loss(current_QC1, target_QC) + F.mse_loss(current_QC2, target_QC)
+        safety_critic_loss = F.mse_loss(current_QC, target_QC)
         logger.log('train/safety_critic_loss', safety_critic_loss, step)
 
         # Jointly optimize Reward and Safety Critics
@@ -170,18 +164,16 @@ class SACLAGAgent(Agent):
         actor_Q = torch.min(actor_Q1, actor_Q2)
 
         # Safety Critic with actor actions
-        actor_QC1, actor_QC2 = self.safety_critic(obs, action)
-        actor_QC = torch.min(actor_QC1, actor_QC2)
+        actor_QC = self.safety_critic(obs, action)
 
         # Safety Critic with actual actions
-        current_QC1, current_QC2 = self.safety_critic(obs, action_taken)
-        current_QC = torch.min(current_QC1, current_QC2)
+        current_QC = self.safety_critic(obs, action_taken)
 
-        # CVaR + Damp impact of safety constraint in actor update / not used if damp_scale = 0
-        damp = self.damp_scale * torch.mean(self.target_cost - current_QC.detach())
+        # Damp impact of safety constraint in actor update / not used if damp_scale = 0
+        damp = self.damp_scale * torch.mean(self.target_cost - current_QC)
 
         # Actor Loss
-        actor_loss = torch.mean(self.alpha.detach() * log_prob - actor_Q.detach() + (self.beta.detach() - damp) * (actor_QC.detach()))
+        actor_loss = torch.mean(self.alpha.detach() * log_prob - actor_Q.detach() + (self.beta.detach() - damp.detach()) * actor_QC.detach())
 
         logger.log('train/actor_loss', actor_loss, step)
         logger.log('train/actor_entropy', -log_prob.mean(), step)
@@ -229,16 +221,14 @@ class SACLAGAgent(Agent):
         torch.save(self.actor.trunk.state_dict(), os.path.join(path, 'actor.pth'))
         torch.save(self.critic.Q1.state_dict(), os.path.join(path, 'critic_q1.pth'))
         torch.save(self.critic.Q2.state_dict(), os.path.join(path, 'critic_q2.pth'))
-        torch.save(self.safety_critic.QC1.state_dict(), os.path.join(path, 'safety_critic_QC1.pth'))
-        torch.save(self.safety_critic.QC2.state_dict(), os.path.join(path, 'safety_critic_QC2.pth'))
+        torch.save(self.safety_critic.QC1.state_dict(), os.path.join(path, 'safety_critic_QC.pth'))
 
 
     def load(self, path):
         self.actor.trunk.load_state_dict(torch.load(os.path.join(path, 'actor.pth')))
         self.critic.Q1.load_state_dict(torch.load(os.path.join(path, 'critic_q1.pth')))
         self.critic.Q2.load_state_dict(torch.load(os.path.join(path, 'critic_q2.pth')))
-        self.safety_critic.QC1.load_state_dict(torch.load(os.path.join(path, 'safety_critic_QC1.pth')))
-        self.safety_critic.QC2.load_state_dict(torch.load(os.path.join(path, 'safety_critic_QC2.pth')))
+        self.safety_critic.QC1.load_state_dict(torch.load(os.path.join(path, 'safety_critic_QC.pth')))
     
     def save_actor(self, path, id):
         torch.save(self.actor.trunk.state_dict(), os.path.join(path, f'{id}.pth'))

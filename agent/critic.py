@@ -74,3 +74,32 @@ class SafetyCritic(nn.Module):
             if type(m1) is nn.Linear:
                 logger.log_param(f'train_safety_critic/qc1_fc{i}', m1, step)
                 logger.log_param(f'train_safety_critic/qc2_fc{i}', m2, step)
+
+
+class SafetyCriticLag(nn.Module):
+    """Safety Critic Network for estimating Long Term Costs (Mean and Variance)"""
+    def __init__(self, obs_dim, action_dim, hidden_dim, hidden_depth):
+        super().__init__()
+
+        self.QC = utils.mlp(obs_dim + action_dim, hidden_dim, 1, hidden_depth)
+
+        self.outputs = dict()
+        self.apply(utils.weight_init)
+
+    def forward(self, obs, action):
+        assert obs.size(0) == action.size(0)
+
+        obs_action = torch.cat([obs, action], dim=-1)
+        qc = self.QC(obs_action)
+
+        self.outputs['qc'] = qc
+
+        return qc
+
+    def log(self, logger, step):
+        for k, v in self.outputs.items():
+            logger.log_histogram(f'train_safety_critic/{k}_hist', v, step)
+
+        for i, m1 in enumerate(self.QC):
+            if type(m1) is nn.Linear:
+                logger.log_param(f'train_safety_critic/qc_fc{i}', m1, step)

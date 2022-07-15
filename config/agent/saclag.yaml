@@ -37,7 +37,7 @@ double_q_critic:
     hidden_depth: 2
 
 safety_critic:
-  class: agent.critic.SafetyCritic
+  class: agent.critic.SafetyCriticLag
   params:
     obs_dim: ${agent.params.obs_dim}
     action_dim: ${agent.params.action_dim}
