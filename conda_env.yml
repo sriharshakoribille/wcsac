@@ -2,9 +2,9 @@ name: pytorch_wcsac
 channels:
   - defaults
 dependencies:
-  - python=3.6
-  - pytorch
-  - cudatoolkit=9.2
+  - python=3.9
+  - pytorch=1.11.0
+  - cudatoolkit=11.3
   - absl-py
   - pyparsing
   - pip:

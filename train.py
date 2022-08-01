@@ -110,9 +110,7 @@ class Workspace(object):
                     self.logger.dump(self.step, save=(self.step > self.cfg.num_seed_steps))
 
                 # evaluate agent periodically
-                if (self.step > 0 and self.step % self.cfg.eval_frequency == 0) or (
-                    self.step == self.cfg.num_train_steps
-                ):
+                if (self.step > 0 and self.step % self.cfg.eval_frequency == 0):
                     self.logger.log("eval/episode", episode, self.step)
                     self.evaluate()
 
@@ -156,6 +154,8 @@ class Workspace(object):
             ep_step += 1
             self.step += 1
         self.agent.save(self.work_dir)
+        self.logger.log("eval/episode", episode, self.step)
+        self.evaluate()
 
 
 @hydra.main(config_path="config/train.yaml", strict=True)
