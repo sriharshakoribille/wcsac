@@ -8,6 +8,11 @@ This is a PyTorch implementation of Worst-Case Soft Actor-Critic (WCSAC) [[Page]
 <img src="figures/results-env.png"/>
 </div>
 
+## WCSAC+ Results
+<div align="center">
+<img src="figures/wcsacp.png"/>
+</div>
+
 ## Requirements
 We assume you have access to a gpu that can run `CUDA 11.2`. We also assume that you have [Safety-Gym](https://github.com/openai/safety-gym) installed. 
 ```
